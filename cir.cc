@@ -10,7 +10,9 @@
  * \param[in] b_ the constant. 
  * \param[in] ss_ the constant. 
  * */
-cir::cir(int m_,double a_,double b_,double ss_) : m(m_), dx(2./m), 
+cir::cir(const int m_,const double ax_, const double bx_, 
+        const double a_,const double b_,const double ss_) 
+    : m(m_), dx(2./m), xsp(1/dx), ax(ax_), bx(bx_),
     a(a_), b(b_), ss(ss_), p(new double[m]), q(new double[m]) {}
 
 /** The class destructor frees the dynamically allocated memory. */
@@ -28,20 +30,59 @@ void cir::init_dirac() {
     }
 }
 
+/** Computes the maximum timestep that can resolve the fluid advection, based
+ * on the CFL condition.
+ * \return The maximum timestep. */
+double cir::advection_dt() {
+    double adv_dt=0;
+#pragma omp parallel for reduction(max:adv_dt)
+    for(int j=0;j<m;j++) {
+        // to modify rr depending on our domain
+        double t, rr=j*dx;
+        t=(a(b-rr)-ss)*xsp;
+        if(t>adv_dt) adv_dt=t;
+    }
+    return adv_dt==0?std::numeric_limits<double>::max():1./adv_dt;
+}
+
+/** Chooses the timestep based on the limits from advection and viscosity.
+ * \param[in] dt_pad the padding factor for the timestep for the physical
+ *                   terms, which should be smaller than 1.
+ * \param[in] adv_dt the maximum timestep to resolve the fluid advection.
+ * \param[in] verbose whether to print out messages to the screen. */
+void cir::choose_dt(double dt_pad,double adv_dt,bool verbose) {
+
+    // Calculate the viscous timestep restriction
+    double vis_dt=0.5*rho/(visc*(xxsp+yysp));
+    int ca;
+
+    // Choose the minimum of the two timestep restrictions
+    if(adv_dt<vis_dt) {ca=0;dt_reg=adv_dt;}
+    else {ca=1;dt_reg=vis_dt;}
+    dt_reg*=dt_pad;
+
+    // Print information if requested
+    if(verbose) {
+        const char mno[]="", myes[]=" <-- use this";
+        printf("# Advection dt       : %g%s\n"
+               "# Viscous dt         : %g%s\n"
+               "# Padding factor     : %g\n"
+               "# Minimum dt         : %g\n",
+               adv_dt,ca==0?myes:mno,vis_dt,ca==1?myes:mno,dt_pad,dt_reg);
+    }
+}
+
 /** Solves the transport equation, storing snapshots of the solution to a file.
  * \param[in] filename the name of the file to write to.
  * \param[in] snaps the number of snapshots to save (not including the initial
  *                  snapshot).
- * \param[in] duration the number of iterations to step the solution forward by
- *                     between snapshots.
- * \param[in] safe_fac a safety factor to apply to the CFL timestep restriction.
+ * \param[in] duration the simulation duration.
  * \param[in] type the solve method to use. 0: FD, 1: FE, 2: DG (kiv) */
-void cir::solve(const char* filename,int snaps,double duration,double safe_fac,int type) {
+void cir::solve(const char* filename,int snaps,double duration,int type) {
 
     // Compute the timestep and number of iterations
-    double interval=duration/snaps,dt=dx/A*safe_fac;
-    int iters=static_cast<int>(interval/dt)+1;
-    dt=interval/iters;
+    double adt;
+    int iters=timestep_select(duration/snaps,adt);
 
     // Allocate memory to store solution snapshots. Integrate the system and
     // store snapshots after fixed time intervals
@@ -89,7 +130,6 @@ void cir::fd(dt){
             jr=j==m-1?1-m+j:j+1;
 
         t[j] = f*p[jr]-p[jl];
-
     }
 
     // Diffusive term
