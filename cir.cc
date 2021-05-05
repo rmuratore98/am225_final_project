@@ -1,7 +1,8 @@
 #include <cstdlib>
 #include <cstring>
-
+#include <boost/math/distributions/non_central_chi_squared.hpp>
 #include "cir.hh"
+#include <cmath>
 
 /** Initializes the class for solving the CIR FP equation, 
  * using a variety of high-order and high-resolution methods.
@@ -212,4 +213,12 @@ void cir::print_line(FILE *fp,double x,double *zp,int snaps) {
     fprintf(fp,"%g",x);
     for(int i=0;i<=snaps;i++) fprintf(fp," %g",zp[i*m]);
     fputc('\n',fp);
+}
+
+double cir::true_density(double x_0, double x_t, double t_dur){
+    double c = 2.*a/((1.-exp(-a*t_dur))*ss);
+    double argu = x_t*2.*c;
+    double dof = 4.*a*b/ss;
+    double ncp = argu*exp(-a*t_dur);
+    return pdf(non_central_chi_squared(dog,ncp),argu);
 }
