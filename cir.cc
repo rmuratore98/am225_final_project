@@ -7,19 +7,42 @@
 /** Initializes the class for solving the CIR FP equation, 
  * using a variety of high-order and high-resolution methods.
  * \param[in] m_ the number of gridpoints to use.
+ * \param[in] ax_ lower bound on domain. 
+ * \param[in] bx_ upper bound on domain. 
  * \param[in] a_ the constant. 
  * \param[in] b_ the constant. 
  * \param[in] ss_ the constant. 
  * */
 cir::cir(const int m_,const double ax_, const double bx_, 
         const double a_,const double b_,const double ss_) 
-    : m(m_), dx(2./m), xsp(1/dx), ax(ax_), bx(bx_),
-    a(a_), b(b_), ss(ss_), p(new double[m]), q(new double[m]) {}
+    : m(m_), ax(ax_), bx(bx_), dx((bx-ax)/m), xsp(1/dx), 
+    a(a_), b(b_), ss(ss_), p(new double[m]), q(new double[m]),
+    t(new double[m]), d(new double[m]) {}
 
 /** The class destructor frees the dynamically allocated memory. */
 cir::~cir() {
+    delete [] d;
+    delete [] t;
     delete [] q;
     delete [] p;
+}
+
+/** Initializes the simulation, setting up the tracers and simulation fields,
+ * and choosing the timestep.
+ * \param[in] dt_pad_ the padding factor for the timestep, which should be
+ *                    smaller than 1.
+ * \param[in] max_vel a maximum fluid speed from which to estimate the
+ *                    advection timestep restriction. If a negative value is
+ *                    supplied, then the advection CFL condition is explicitly
+ *                    calculated. */
+void cir::initialize(double dt_pad,double max_vel) {
+
+    // Initialize the simulation fields
+    init_dirac();
+
+    // Compute the timestep, based on the restrictions from the advection
+    // and velocity, plus a padding factor
+    choose_dt(dt_pad,max_spd<=0?advection_dt():dx/max_spd);
 }
 
 /** Initializes the solution to be a dirac delta function. */
@@ -39,8 +62,8 @@ double cir::advection_dt() {
 #pragma omp parallel for reduction(max:adv_dt)
     for(int j=0;j<m;j++) {
         // to modify rr depending on our domain
-        double t, rr=j*dx;
-        t=(a(b-rr)-ss)*xsp;
+        double t, rr=j*dx+ax;
+        t=fabs(-(a(b-rr)-ss))*xsp;
         if(t>adv_dt) adv_dt=t;
     }
     return adv_dt==0?std::numeric_limits<double>::max():1./adv_dt;
@@ -53,13 +76,13 @@ double cir::advection_dt() {
  * \param[in] verbose whether to print out messages to the screen. */
 void cir::choose_dt(double dt_pad,double adv_dt,bool verbose) {
 
-    // Calculate the viscous timestep restriction
-    double vis_dt=0.5*rho/(visc*(xxsp+yysp));
+    // Calculate the diffusion timestep restriction
+    double dif_dt=xsp*xsp*2/ss;
     int ca;
 
     // Choose the minimum of the two timestep restrictions
     if(adv_dt<vis_dt) {ca=0;dt_reg=adv_dt;}
-    else {ca=1;dt_reg=vis_dt;}
+    else {ca=1;dt_reg=dif_dt;}
     dt_reg*=dt_pad;
 
     // Print information if requested
@@ -69,7 +92,7 @@ void cir::choose_dt(double dt_pad,double adv_dt,bool verbose) {
                "# Viscous dt         : %g%s\n"
                "# Padding factor     : %g\n"
                "# Minimum dt         : %g\n",
-               adv_dt,ca==0?myes:mno,vis_dt,ca==1?myes:mno,dt_pad,dt_reg);
+               adv_dt,ca==0?myes:mno,dif_dt,ca==1?myes:mno,dt_pad,dt_reg);
     }
 }
 
@@ -93,8 +116,8 @@ void cir::solve(const char* filename,int snaps,double duration,int type) {
 
         // Perform the explict timesteps
         switch(type) {
-            case 0: for(int k=0;k<iters;k++) fd(dt);break;
-            case 1: for(int k=0;k<iters;k++) fe(dt);break;
+            case 0: for(int k=0;k<iters;k++) fd(adt);break;
+            case 1: for(int k=0;k<iters;k++) fv(adt);break;
         }
 
         // Store the snapshot
@@ -124,66 +147,66 @@ void cir::solve(const char* filename,int snaps,double duration,int type) {
 void cir::fd(dt){
 
     // Advective term
-    double f=(a*(b-r)-ss)*2*dx;
     for(int j=0;j<m;j++) {
+        // Compute f based on r
+        double r=j*dx+ax, g=-(a*(b-r)-ss)*xsp;
         // Compute required indices, taking into account periodicity (KIV)
         int jl=j==0?m-1+j:j-1,jll=j<=1?m-2+j:j-2,
             jr=j==m-1?1-m+j:j+1;
 
-        t[j] = f*p[jr]-p[jl];
+        t[j] = g*(p[jr]-p[jl]);
     }
 
     // Diffusive term
-    double nu=dt/(dx*dx)*ss/2;
+    double nu=ss/2*xsp*xsp;
     for(int j=0;j<m;j++){
         // Compute indices on left and right, taking into account periodicity (KIV)
         int jl=j==0?m-1+j:j-1,
             jr=j==m-1?1-m+j:j+1;
 
-        d[j]=p[j]+nu*(p[jl]-2*p[j]+p[jr]);
+        d[j]=nu*(p[jl]-2*p[j]+p[jr]);
     }
 
     // Combining both terms
     for(int j=0;j<m;j++){
-        q[j] = p[j] + dt*(-t[j]+d[j]+a*p[j]); 
+        q[j] = p[j] + dt*(t[j]+d[j]+a*p[j]); 
     }
 
-    // Swap pointers so that b becomes the primary array
+    // Swap pointers so that p becomes the primary array
     double *c=p;p=q;q=c;
 }
 
-/** Steps the simulation fields forward using FE.
+/** Steps the simulation fields forward using FV.
  * \param[in] dt the time step to use. */
-void cir::fe(dt){
+void cir::fv(dt){
 
     // Advective term
-    double f=(a*(b-r)-ss)*2*dx;
     for(int j=0;j<m;j++) {
-
+        double r=j*dx+ax, g=-(a*(b-r)-ss)/2*xsp;
         // Compute required indices, taking into account periodicity (KIV)
         int jl=j==0?m-1+j:j-1,jll=j<=1?m-2+j:j-2,
             jr=j==m-1?1-m+j:j+1;
 
         // Perform update
-        t[j]=p[j]-f*eno2(p[jr],p[j],p[jl],p[jll]);
+        t[j]=g*(p[jr]+p[jl]);
     }
 
     // Diffusive term
-    double nu=dt/(dx*dx)*ss/2;
+    double nu=ss/2*xsp*xsp;
     for(int j=0;j<m;j++){
         // Compute indices on left and right, taking into account periodicity (KIV)
         int jl=j==0?m-1+j:j-1,
             jr=j==m-1?1-m+j:j+1;
 
-        d[j]=p[j]+nu*(p[jl]-2*p[j]+p[jr]);
+        d[j]=nu*(p[jl]-2*p[j]+p[jr]);
     }
 
     // Combining both terms
     for(int j=0;j<m;j++){
-        q[j] = p[j] + dt*(-t[j]+d[j]+a*p[j]); 
+        q[j] = p[j] + dt*(t[j]-t[j-1]+d[j]); 
     }
 
-    // Swap pointers so that b becomes the primary array
+    // Swap pointers so that p becomes the primary array
     double *c=p;p=q;q=c;
 }
 

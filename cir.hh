@@ -22,6 +22,8 @@ class cir {
         const double b;
         /** The constant, s^2. */
         const double ss;
+        /** The regular timestep to be used. */
+        double dt_reg;
         /** The primary grid for storing the solution. */
         double *p;
         /** The secondary grid for storing the solution. */
@@ -32,12 +34,13 @@ class cir {
         double *d;
         cir(const int m_,const double ax_, const double bx_, const double a_,const double b_,const double ss_);
         ~cir();
+        void initialize(double dt_pad,double max_vel=-1);
         void init_dirac();
         double advection_dt();
-        void choose_dt(double dt_pad,double adv_dt,bool verbose);
-        void solve(const char* filename,int snaps,double duration,double safe_fac,int type);
+        void choose_dt(double dt_pad,double adv_dt,bool verbose=true);
+        void solve(const char* filename,int snaps,double duration,int type);
         void fd(double dt);
-        void fe(double dt);
+        void fv(double dt);
         double cir::true_density(double x_0, double x_t, double t_dur);
         double integral();
         /** Chooses a timestep size that is the largest value smaller than dt_reg,
