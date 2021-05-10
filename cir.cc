@@ -14,9 +14,10 @@
  * \param[in] ss_ the constant. 
  * */
 cir::cir(const int m_,const double ax_, const double bx_, 
-        const double a_,const double b_,const double ss_) 
+        const double a_,const double b_,const double ss_,
+        const double x_0_) 
     : m(m_), ax(ax_), bx(bx_), dx((bx-ax)/m), xsp(1/dx), 
-    a(a_), b(b_), ss(ss_), p(new double[m]), q(new double[m]),
+    a(a_), b(b_), ss(ss_), x_0(x_0_), p(new double[m]), q(new double[m]),
     t(new double[m]), d(new double[m]) {}
 
 /** The class destructor frees the dynamically allocated memory. */
@@ -49,8 +50,10 @@ void cir::initialize(double dt_pad,double max_vel) {
 void cir::init_dirac() {
     for(int i=0;i<m;i++) {
         double x=dx*(i+0.5);
-        if(i==0) p[i]=1;
-        else p[i]=0;
+        double sig = 0.01;
+        p[i] = exp(-(x-x_0)*(x-x_0)/(2*sig*sig))/(sig*sqrt(2*M_PI)) + exp(-(x+x_0)*(x+x_0)/(2*sig*sig))/(sig*sqrt(2*M_PI));
+        // if(i==0) p[i]=1;
+        // else p[i]=0;
     }
 }
 
@@ -81,7 +84,7 @@ void cir::choose_dt(double dt_pad,double adv_dt,bool verbose) {
     int ca;
 
     // Choose the minimum of the two timestep restrictions
-    if(adv_dt<vis_dt) {ca=0;dt_reg=adv_dt;}
+    if(adv_dt<dif_dt) {ca=0;dt_reg=adv_dt;}
     else {ca=1;dt_reg=dif_dt;}
     dt_reg*=dt_pad;
 

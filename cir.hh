@@ -22,6 +22,7 @@ class cir {
         const double b;
         /** The constant, s^2. */
         const double ss;
+        const double x_0;
         /** The regular timestep to be used. */
         double dt_reg;
         /** The primary grid for storing the solution. */
@@ -32,7 +33,7 @@ class cir {
         double *t;
         /** The secondary grid for storing the diffusive solution. */
         double *d;
-        cir(const int m_,const double ax_, const double bx_, const double a_,const double b_,const double ss_);
+        cir(const int m_,const double ax_, const double bx_, const double a_,const double b_,const double ss_, const double x_0_);
         ~cir();
         void initialize(double dt_pad,double max_vel=-1);
         void init_dirac();

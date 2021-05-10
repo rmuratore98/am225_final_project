@@ -18,11 +18,11 @@ int main() {
     const int m = 256;
 
     // Define other constants
-    double a,b,ss;
+    double a,b,ss, x_0;
 
     // Construct the simulation class, setting the number of gridpoints, the
     // periodicity, and physical constants
-    cir cirfp(m,0.,10.,a,b,ss);
+    cir cirfp(m,0.,10.,a,b,ss, x_0);
 
     // Set the timestep based on multiplying the maximum allowable by a 
     // padding factor, initialize initial state
