@@ -41,7 +41,7 @@ class cir {
         void solve(const char* filename,int snaps,double duration,int type);
         void fd(double dt);
         void fv(double dt);
-        double cir::true_density(double x_0, double x_t, double t_dur);
+        double true_density(double x_0, double x_t, double t_dur);
         double integral();
         /** Chooses a timestep size that is the largest value smaller than dt_reg,
         * such that a given interval length is a perfect multiple of this timestep.

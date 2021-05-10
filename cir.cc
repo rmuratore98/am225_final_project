@@ -42,7 +42,7 @@ void cir::initialize(double dt_pad,double max_vel) {
 
     // Compute the timestep, based on the restrictions from the advection
     // and velocity, plus a padding factor
-    choose_dt(dt_pad,max_spd<=0?advection_dt():dx/max_spd);
+    choose_dt(dt_pad,max_vel<=0?advection_dt():dx/max_vel);
 }
 
 /** Initializes the solution to be a dirac delta function. */
@@ -63,7 +63,7 @@ double cir::advection_dt() {
     for(int j=0;j<m;j++) {
         // to modify rr depending on our domain
         double t, rr=j*dx+ax;
-        t=fabs(-(a(b-rr)-ss))*xsp;
+        t=fabs(-(a*(b-rr)-ss))*xsp;
         if(t>adv_dt) adv_dt=t;
     }
     return adv_dt==0?std::numeric_limits<double>::max():1./adv_dt;
@@ -144,7 +144,7 @@ void cir::solve(const char* filename,int snaps,double duration,int type) {
 
 /** Steps the simulation fields forward using FD.
  * \param[in] dt the time step to use. */
-void cir::fd(dt){
+void cir::fd(double dt){
 
     // Advective term
     for(int j=0;j<m;j++) {
@@ -178,7 +178,7 @@ void cir::fd(dt){
 
 /** Steps the simulation fields forward using FV.
  * \param[in] dt the time step to use. */
-void cir::fv(dt){
+void cir::fv(double dt){
 
     // Advective term
     for(int j=0;j<m;j++) {
@@ -243,5 +243,5 @@ double cir::true_density(double x_0, double x_t, double t_dur){
     double argu = x_t*2.*c;
     double dof = 4.*a*b/ss;
     double ncp = argu*exp(-a*t_dur);
-    return pdf(non_central_chi_squared(dog,ncp),argu);
+    return boost::math::pdf(boost::math::non_central_chi_squared(dof,ncp),argu);
 }
