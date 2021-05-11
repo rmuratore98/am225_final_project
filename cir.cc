@@ -241,10 +241,23 @@ void cir::print_line(FILE *fp,double x,double *zp,int snaps) {
     fputc('\n',fp);
 }
 
-double cir::true_density(double x_0, double x_t, double t_dur){
+double cir::true_density(double x_t, double t_dur){
     double c = 2.*a/((1.-exp(-a*t_dur))*ss);
     double argu = x_t*2.*c;
     double dof = 4.*a*b/ss;
-    double ncp = argu*exp(-a*t_dur);
+    double ncp = x_0*2.*c*exp(-a*t_dur);
     return boost::math::pdf(boost::math::non_central_chi_squared(dof,ncp),argu);
+}
+
+double cir::l2_loss(double t_dur){
+    double ls = 0;
+    for(int i = 1; i < m-1; i++){
+        double x=dx*(i+0.5);
+        ls += (p[i]-true_density(x,t_dur))*(p[i]-true_density(x,t_dur))*dx;
+    }
+
+    ls += 0.5*(p[0]-true_density((dx*0.5),t_dur))*(p[0]-true_density((dx*0.5),t_dur))*dx;
+    double x_f = dx*(m-0.5);
+    ls += 0.5*(p[0]-true_density(x_f,t_dur))*(p[0]-true_density(x_f,t_dur))*dx;
+    return ls;
 }

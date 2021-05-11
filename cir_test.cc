@@ -18,7 +18,7 @@ int main() {
     const int m = 256;
 
     // Define other constants
-    double a,b,ss, x_0;
+    double a=2.,b=0.02,ss=0.025, x_0=0.8;
 
     // Construct the simulation class, setting the number of gridpoints, the
     // periodicity, and physical constants
@@ -30,5 +30,7 @@ int main() {
 
     // Run the simulation for a specified duration, outputting snapshots at
     // regular intervals
-    cirfp.solve(fn,10,1,type);
+    cirfp.solve(fn,10,.5,type);
+    double q = cirfp.l2_loss(.5);
+    printf("%i %g\n", m, q);
 }
