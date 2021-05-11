@@ -33,13 +33,15 @@ class cir {
         double *t;
         /** The secondary grid for storing the diffusive solution. */
         double *d;
+        /** The secondary grid for storing the flux. */
+        double *f;
         cir(const int m_,const double ax_, const double bx_, const double a_,const double b_,const double ss_, const double x_0_);
         ~cir();
-        void initialize(double dt_pad,double max_vel=-1);
+        void initialize(double dt_pad,bool verbose,double max_vel=-1);
         void init_dirac();
         double advection_dt();
         void choose_dt(double dt_pad,double adv_dt,bool verbose=true);
-        void solve(const char* filename,int snaps,double duration,int type);
+        void solve(const char* filename,int snaps,double duration,int type,bool print=false);
         void fd(double dt);
         void fv(double dt);
         double true_density(double x_t, double t_dur);

@@ -18,7 +18,7 @@ cir::cir(const int m_,const double ax_, const double bx_,
         const double x_0_) 
     : m(m_), ax(ax_), bx(bx_), dx((bx_-ax_)/double(m)), xsp(1/dx), 
     a(a_), b(b_), ss(ss_), x_0(x_0_), p(new double[m]), q(new double[m]),
-    t(new double[m]), d(new double[m]) {}
+    t(new double[m]), d(new double[m]), f(new double[m+1]) {}
 
 /** The class destructor frees the dynamically allocated memory. */
 cir::~cir() {
@@ -36,14 +36,14 @@ cir::~cir() {
  *                    advection timestep restriction. If a negative value is
  *                    supplied, then the advection CFL condition is explicitly
  *                    calculated. */
-void cir::initialize(double dt_pad,double max_vel) {
+void cir::initialize(double dt_pad,bool verbose,double max_vel) {
 
     // Initialize the simulation fields
     init_dirac();
 
     // Compute the timestep, based on the restrictions from the advection
     // and velocity, plus a padding factor
-    choose_dt(dt_pad,max_vel<=0?advection_dt():dx/max_vel);
+    choose_dt(dt_pad,max_vel<=0?advection_dt():dx/max_vel,verbose);
 }
 
 /** Initializes the solution to be a dirac delta function. */
@@ -52,6 +52,7 @@ void cir::init_dirac() {
         double x=dx*(i+0.5);
         double sig = 0.01;
         p[i] = exp(-(x-x_0)*(x-x_0)/(2*sig*sig))/(sig*sqrt(2*M_PI)) + exp(-(x+x_0)*(x+x_0)/(2*sig*sig))/(sig*sqrt(2*M_PI));
+        p[i]*=3.258667704248394e-06;
         // if(i==0) p[i]=1;
         // else p[i]=0;
     }
@@ -80,7 +81,7 @@ double cir::advection_dt() {
 void cir::choose_dt(double dt_pad,double adv_dt,bool verbose) {
 
     // Calculate the diffusion timestep restriction
-    double dif_dt=xsp*xsp*2/ss;
+    double dif_dt=2/(ss*xsp*xsp);
     int ca;
 
     // Choose the minimum of the two timestep restrictions
@@ -92,7 +93,7 @@ void cir::choose_dt(double dt_pad,double adv_dt,bool verbose) {
     if(verbose) {
         const char mno[]="", myes[]=" <-- use this";
         printf("# Advection dt       : %g%s\n"
-               "# Viscous dt         : %g%s\n"
+               "# Diffusion dt         : %g%s\n"
                "# Padding factor     : %g\n"
                "# Minimum dt         : %g\n",
                adv_dt,ca==0?myes:mno,dif_dt,ca==1?myes:mno,dt_pad,dt_reg);
@@ -105,11 +106,12 @@ void cir::choose_dt(double dt_pad,double adv_dt,bool verbose) {
  *                  snapshot).
  * \param[in] duration the simulation duration.
  * \param[in] type the solve method to use. 0: FD, 1: FE, 2: DG (kiv) */
-void cir::solve(const char* filename,int snaps,double duration,int type) {
+void cir::solve(const char* filename,int snaps,double duration,int type,bool print) {
 
     // Compute the timestep and number of iterations
     double adt;
     int iters=timestep_select(duration/snaps,adt);
+    dt_reg=adt;
 
     // Allocate memory to store solution snapshots. Integrate the system and
     // store snapshots after fixed time intervals
@@ -128,20 +130,22 @@ void cir::solve(const char* filename,int snaps,double duration,int type) {
     }
 
     // Open the output file to store the snapshots
-    FILE *fp=fopen(filename,"w");
-    if(fp==NULL) {
-        fputs("Can't open output file\n",stderr);
-        exit(1);
+    if(print) {
+        FILE *fp=fopen(filename,"w");
+        if(fp==NULL) {
+            fputs("Can't open output file\n",stderr);
+            exit(1);
+        }
+
+        // Print the snapshots, noting that there are no periodic conditions
+        //print_line(fp,-0.5*dx,z+(m-1),snaps);
+        for(int j=0;j<m;j++) print_line(fp,j*dx,z+j,snaps);
+        //print_line(fp,1+0.5*dx,z,snaps);
+
+        // Delete snapshots and close file
+        fclose(fp);
     }
-
-    // Print the snapshots, including periodic copies at either end to get a
-    // full line over the interval from 0 to 1
-    print_line(fp,-0.5*dx,z+(m-1),snaps);
-    for(int j=0;j<m;j++) print_line(fp,(j+0.5)*dx,z+j,snaps);
-    print_line(fp,1+0.5*dx,z,snaps);
-
-    // Delete snapshots and close file
-    fclose(fp);
+    
     delete [] z;
 }
 
@@ -152,22 +156,28 @@ void cir::fd(double dt){
     // Advective term
     for(int j=0;j<m;j++) {
         // Compute f based on r
-        double r=j*dx+ax, g=-(a*(b-r)-ss)*xsp;
-        // Compute required indices, taking into account periodicity (KIV)
-        int jl=j==0?m-1+j:j-1,jll=j<=1?m-2+j:j-2,
-            jr=j==m-1?1-m+j:j+1;
+        double r=(j+0.5)*dx+ax, g=-(a*(b-r)-ss)*xsp;
 
-        t[j] = g*(p[jr]-p[jl]);
+        // Compute term for boundary
+        
+        // Compute required indices for non-boundaries
+        int jl=j,
+            jr=j+1;
+
+        if (j==m-1) t[j] = g*(0-p[jl]);
+        else t[j] = g*(p[jr]-p[jl]);
     }
 
     // Diffusive term
     double nu=ss/2*xsp*xsp;
     for(int j=0;j<m;j++){
         // Compute indices on left and right, taking into account periodicity (KIV)
-        int jl=j==0?m-1+j:j-1,
-            jr=j==m-1?1-m+j:j+1;
+        int jl=j-1,
+            jr=j+1;
 
-        d[j]=nu*(p[jl]-2*p[j]+p[jr]);
+        if (j==0) d[j]=nu*(0-2*p[j]+p[jr]);
+        else if (j==m-1) d[j]=nu*(p[jl]-2*p[j]+0);
+        else d[j]=nu*(p[jl]-2*p[j]+p[jr]);
     }
 
     // Combining both terms
@@ -183,30 +193,22 @@ void cir::fd(double dt){
  * \param[in] dt the time step to use. */
 void cir::fv(double dt){
 
-    // Advective term
-    for(int j=0;j<m;j++) {
-        double r=j*dx+ax, g=-(a*(b-r)-ss)/2*xsp;
-        // Compute required indices, taking into account periodicity (KIV)
-        int jl=j==0?m-1+j:j-1,jll=j<=1?m-2+j:j-2,
-            jr=j==m-1?1-m+j:j+1;
+    // Initializing flux at both ends to be 0
+    f[0] = 0; f[m] = 0;
+    // Calculate the flux F(Q_(i-1),Q_i)
+    double nu=ss/2*xsp;
+    for(int j=1;j<m;j++) {
+        double r=(j+0.5)*dx+ax, g=-(a*(b-r)-ss)/2;
+        // Compute required indices
+        int jl=j-1;
 
-        // Perform update
-        t[j]=g*(p[jr]+p[jl]);
+        // Calculate spatial flux
+        f[j]=g*(p[jl]+p[j]) + nu*(p[j]-p[jl]);
     }
 
-    // Diffusive term
-    double nu=ss/2*xsp*xsp;
+    // Performing one time step update
     for(int j=0;j<m;j++){
-        // Compute indices on left and right, taking into account periodicity (KIV)
-        int jl=j==0?m-1+j:j-1,
-            jr=j==m-1?1-m+j:j+1;
-
-        d[j]=nu*(p[jl]-2*p[j]+p[jr]);
-    }
-
-    // Combining both terms
-    for(int j=0;j<m;j++){
-        q[j] = p[j] + dt*(t[j]-t[j-1]+d[j]); 
+        q[j] = p[j] + (dt/dx)*(f[j+1]-f[j]); 
     }
 
     // Swap pointers so that p becomes the primary array
@@ -251,13 +253,17 @@ double cir::true_density(double x_t, double t_dur){
 
 double cir::l2_loss(double t_dur){
     double ls = 0;
+
+    //printf("%g\n",true_density((dx*0.5),t_dur));
     for(int i = 1; i < m-1; i++){
         double x=dx*(i+0.5);
         ls += (p[i]-true_density(x,t_dur))*(p[i]-true_density(x,t_dur))*dx;
+        //printf("%g\n",true_density(x,t_dur));
     }
 
     ls += 0.5*(p[0]-true_density((dx*0.5),t_dur))*(p[0]-true_density((dx*0.5),t_dur))*dx;
     double x_f = dx*(m-0.5);
     ls += 0.5*(p[0]-true_density(x_f,t_dur))*(p[0]-true_density(x_f,t_dur))*dx;
+    //printf("%g\n",true_density(x_f,t_dur));
     return ls;
 }

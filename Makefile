@@ -6,7 +6,7 @@ lp_lflags=-framework Accelerate
 # Lists of files to be built
 objs=cir.o
 src=$(patsubst %.o,%.cc,$(objs))
-execs=cir_test
+execs=cir_test cir_conv
 
 all: $(execs)
 
@@ -25,6 +25,9 @@ clean:
 	$(cxx) $(cflags) -c $<
 
 cir_test: cir_test.cc $(objs)
+	$(cxx) $(cflags) -o $@ $^ $(lp_lflags)
+
+cir_conv: cir_conv.cc $(objs)
 	$(cxx) $(cflags) -o $@ $^ $(lp_lflags)
 
 .PHONY: clean depend
