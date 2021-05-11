@@ -4,7 +4,8 @@
 
 #include "cir.hh"
 
-const char fn[]="cir_fd.out";
+const char fn[]="cir_fd";
+const char file[]="cir_fd.out";
 
 int main() {
 
@@ -30,9 +31,12 @@ int main() {
     // padding factor, initialize initial state
     cirfp.initialize(0.6);
 
+    char buf[32];
+    sprintf(buf,"cir_fd_%d.out",1);
+
     // Run the simulation for a specified duration, outputting snapshots at
     // regular intervals
-    cirfp.solve(fn,10,.5,type);
+    cirfp.solve(buf,10,.5,type);
     double q = cirfp.l2_loss(.5);
     printf("%i %g\n", m, q);
 }
