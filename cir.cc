@@ -16,7 +16,7 @@
 cir::cir(const int m_,const double ax_, const double bx_, 
         const double a_,const double b_,const double ss_,
         const double x_0_) 
-    : m(m_), ax(ax_), bx(bx_), dx((bx-ax)/m), xsp(1/dx), 
+    : m(m_), ax(ax_), bx(bx_), dx((bx_-ax_)/double(m)), xsp(1/dx), 
     a(a_), b(b_), ss(ss_), x_0(x_0_), p(new double[m]), q(new double[m]),
     t(new double[m]), d(new double[m]) {}
 

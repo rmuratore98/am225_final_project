@@ -18,11 +18,13 @@ int main() {
     const int m = 256;
 
     // Define other constants
-    double a=2.,b=0.02,ss=0.025, x_0=0.8;
+    double a=2.,b=0.02,ss=0.025, x_0=0.8, bx=10., ax=0.;
 
     // Construct the simulation class, setting the number of gridpoints, the
     // periodicity, and physical constants
-    cir cirfp(m,0.,10.,a,b,ss, x_0);
+    cir cirfp(m,ax,bx,a,b,ss, x_0);
+    //printf("dx = %g, xsp = %g\n", cirfp.dx, cirfp.xsp);
+    //printf("%g\n", (bx-ax)/double(m));
 
     // Set the timestep based on multiplying the maximum allowable by a 
     // padding factor, initialize initial state
