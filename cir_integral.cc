@@ -7,7 +7,7 @@
 int main() {
 
     // Method: 0 = FD, 1 = FV;
-    int type = 0;
+    int type = 1;
 
     // Define other constants
     double a=2.,b=0.02,ss=0.15*0.15, x_0=0.8, bx=10., ax=0.;
