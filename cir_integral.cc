@@ -7,12 +7,12 @@
 int main() {
 
     // Method: 0 = FD, 1 = FV;
-    int type = 1;
+    int type = 0;
 
     // Define other constants
     double a=2.,b=0.02,ss=0.15*0.15, x_0=0.8, bx=10., ax=0.;
 
-    for(int i=0;i<30;i++){
+    for(int i=10;i<40;i++){
         int m = int(10*pow(100,(1/30.)*i)+0.5);
         // Construct the simulation class, setting the number of gridpoints, the
         // periodicity, and physical constants

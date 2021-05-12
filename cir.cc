@@ -52,7 +52,7 @@ void cir::init_dirac() {
         double x=dx*(i+0.5);
         double sig = 0.01;
         p[i] = exp(-(x-x_0)*(x-x_0)/(2*sig*sig))/(sig*sqrt(2*M_PI)) + exp(-(x+x_0)*(x+x_0)/(2*sig*sig))/(sig*sqrt(2*M_PI));
-        p[i]*=3.258667704248394e-06;
+        //p[i]*=3.258667704248394e-06;
         // if(i==0) p[i]=1;
         // else p[i]=0;
     }
