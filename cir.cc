@@ -246,10 +246,14 @@ void cir::print_line(FILE *fp,double x,double *zp,int snaps) {
 
 double cir::true_density(double x_t, double t_dur){
     double c = 2.*a/((1.-exp(-a*t_dur))*ss);
-    double argu = x_t*2.*c;
-    double dof = 4.*a*b/ss;
-    double ncp = x_0*2.*c*exp(-a*t_dur);
-    return boost::math::pdf(boost::math::non_central_chi_squared(dof,ncp),argu);
+    double q = 2.*a*b/ss-1.;
+    double u = c*x_0*exp(-a*t_dur);
+    double v = c*x_t;
+    return c*exp(-u-v)*pow(v/u,q/2.)*boost::math::special_functions::cyl_bessel_i(q,2.*sqrt(u*v));
+    // double argu = x_t*2.*c;
+    // double dof = 4.*a*b/ss;
+    // double ncp = x_0*2.*c*exp(-a*t_dur);
+    // return boost::math::pdf(boost::math::non_central_chi_squared(dof,ncp),argu);
 }
 
 double cir::l2_loss(double t_dur){
