@@ -161,10 +161,11 @@ void cir::fd(double dt){
         // Compute term for boundary
         
         // Compute required indices for non-boundaries
-        int jl=j,
+        int jl=j-1,
             jr=j+1;
 
-        if (j==m-1) t[j] = g*(0-p[jl]);
+        if (j==0) t[j] = g*(p[jr]-0);
+        else if (j==m-1) t[j] = g*(0-p[jl]);
         else t[j] = g*(p[jr]-p[jl]);
     }
 

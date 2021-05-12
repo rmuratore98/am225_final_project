@@ -13,7 +13,7 @@ int main() {
     //mkdir(fn,S_IRWXU|S_IRWXG|S_IROTH|S_IXOTH);
 
     // Method: 0 = FD, 1 = FV;
-    int type = 1;
+    int type = 0;
 
     // Number of gridpoints
     const int m = 256;
@@ -28,11 +28,11 @@ int main() {
     //printf("%g\n", (bx-ax)/double(m));
 
     // Set the timestep based on multiplying the maximum allowable by a 
-    // padding factor, initialize initial state
+    // padding factor, initialize initial state, set print=true
     cirfp.initialize(0.6,true);
 
     char buf[32];
-    sprintf(buf,"cir_fv_%d.txt",1);
+    sprintf(buf,"cir_fd_%d.txt",2);
 
     // Run the simulation for a specified duration, outputting snapshots at
     // regular intervals
