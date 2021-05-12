@@ -1,6 +1,7 @@
 #include <cstdlib>
 #include <cstring>
 #include <boost/math/distributions/non_central_chi_squared.hpp>
+#include <boost/math/special_functions/bessel.hpp>
 #include "cir.hh"
 #include <cmath>
 
@@ -249,7 +250,7 @@ double cir::true_density(double x_t, double t_dur){
     double q = 2.*a*b/ss-1.;
     double u = c*x_0*exp(-a*t_dur);
     double v = c*x_t;
-    return c*exp(-u-v)*pow(v/u,q/2.)*boost::math::special_functions::cyl_bessel_i(q,2.*sqrt(u*v));
+    return c*exp(-u-v)*pow(v/u,q/2.)*cyl_bessel_i(q,2.*sqrt(u*v));
     // double argu = x_t*2.*c;
     // double dof = 4.*a*b/ss;
     // double ncp = x_0*2.*c*exp(-a*t_dur);
